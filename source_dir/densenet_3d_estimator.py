@@ -2,10 +2,10 @@ import os
 
 import tensorflow as tf
 
-from .densenet_3d_model import DenseNet3D
-
+from densenet_3d_model import DenseNet3D
 
 def model_fn(features, labels, mode, params):
+    
     # Define the model
     model = DenseNet3D(
         video_clips=features['video_clips'], labels=labels, **params)
@@ -13,7 +13,7 @@ def model_fn(features, labels, mode, params):
     # Get the prediction result
     if mode == tf.estimator.ModeKeys.PREDICT:
         model.is_training = False
-        return _predict_result(model.logits)
+        return _predict_result(model)
 
     return tf.estimator.EstimatorSpec(
         mode=mode,
@@ -23,7 +23,7 @@ def model_fn(features, labels, mode, params):
 
 
 def _predict_result(model):
-    predictions = {'probabilities': model.prediction, 'logits': model.logits}
+    predictions = {'prediction': model.prediction, 'probability': model.probability, 'logits': model.logits}
     return tf.estimator.EstimatorSpec(
         mode=tf.estimator.ModeKeys.PREDICT, predictions=predictions)
 
@@ -36,7 +36,7 @@ def serving_input_fn(params):
             shape=[
                 None, params['num_frames_per_clip'], params['height'],
                 params['width'], params['channel']
-            ])
+            ])  
     }
     return tf.estimator.export.build_raw_serving_input_receiver_fn(inputs)()
 
@@ -59,6 +59,7 @@ def _build_tfrecord_dataset(directory, total_clip_num, batch_size, **params):
     [num_frames_per_clip, height, width, channel]
     ex: [16, 100, 120, 3]
     '''
+    print('Building dataset, number of clips: ' + str(total_clip_num))
     dataset = tf.data.TFRecordDataset(directory)
     dataset = dataset.shuffle(buffer_size=total_clip_num)
     dataset = dataset.map(

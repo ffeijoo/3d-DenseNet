@@ -89,24 +89,28 @@ class DenseNet3D(object):
         with tf.variable_scope('Transition_to_classes'):
             self._logits = self._trainsition_layer_to_classes(output)
 
+        # Prediction probability
+        self._prediction_prob = tf.nn.softmax(self._logits)
+            
         # Prediction result
         self._prediction = tf.argmax(self._logits, 1)
 
         # Losses
-        self._cross_entropy = tf.reduce_mean(
-            tf.nn.sparse_softmax_cross_entropy_with_logits(
-                logits=self._logits, labels=self.labels),
-            name='Cross_entropy')
-        self.l2_loss = tf.add_n(
-            [tf.nn.l2_loss(var) for var in tf.trainable_variables()])
-        self.total_loss = self._cross_entropy + self.l2_loss * self.weight_decay
+        if self.labels is not None:
+            self._cross_entropy = tf.reduce_mean(
+                tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    logits=self._logits, labels=self.labels),
+                name='Cross_entropy')
+            self.l2_loss = tf.add_n(
+                [tf.nn.l2_loss(var) for var in tf.trainable_variables()])
+            self.total_loss = self._cross_entropy + self.l2_loss * self.weight_decay
 
-        # Optimizer and training op
-        self._train_op = tf.contrib.layers.optimize_loss(
-            loss=self.total_loss,
-            global_step=self.global_step,
-            learning_rate=self.learning_rate,
-            optimizer='Momentum')
+            # Optimizer and training op
+            self._train_op = tf.contrib.layers.optimize_loss(
+                loss=self.total_loss,
+                global_step=self.global_step,
+                learning_rate=self.learning_rate,
+                optimizer='Momentum')
 
     @property
     def logits(self):
@@ -123,10 +127,14 @@ class DenseNet3D(object):
     @property
     def prediction(self):
         return self._prediction
+    
+    @property
+    def probability(self):
+        return self._prediction_prob
 
     @property
     def accuracy(self):
-        correct_prediction = tf.equal(tf.argmax(self._logits, 1), self.labels)
+        correct_prediction = tf.equal(tf.argmax(self._logits, 1), self.labels)        
         return tf.metrics.mean(tf.cast(correct_prediction, tf.float32))
 
     @property
